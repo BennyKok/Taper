@@ -13,6 +13,7 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 import bpy
 import os
+import subprocess
 from bpy.props import BoolProperty, StringProperty, PointerProperty
 
 
@@ -48,6 +49,13 @@ class Configs(bpy.types.PropertyGroup):
         subtype='DIR_PATH'
     )
 
+    substance_painter_path = StringProperty(
+        name="Substance Painter path",
+        default="",
+        description="The .exe file path of Substance Painter.",
+        subtype='FILE_PATH'
+    )
+
 
 class Utils(object):
 
@@ -77,9 +85,17 @@ class Utils(object):
 
         return folderPath, None
 
+    @staticmethod
+    def getSubstancePainterPath(configs: Configs):
+        return configs.substance_painter_path
+
+    @staticmethod
+    def getActiveCollectionName(context):
+        return bpy.path.clean_name(context.view_layer.active_layer_collection.name)
+
 
 class ExportFBXCollectionsOperator(bpy.types.Operator):
-    bl_idname = bl_info["operator_id_prefix"] + ".fbx_collections"
+    bl_idname = bl_info["operator_id_prefix"] + ".export_fbx_collections"
     bl_label = "Export FBX Collections"
     button_label = "All"
 
@@ -102,14 +118,14 @@ class ExportFBXCollectionsOperator(bpy.types.Operator):
 
 
 class ExportFBXActiveCollectionOperator(bpy.types.Operator):
-    bl_idname = bl_info["operator_id_prefix"] + ".fbx_activecollection"
+    bl_idname = bl_info["operator_id_prefix"] + ".export_fbx_active_collection"
     bl_label = "Export Active FBX Collection"
     button_label = "Active"
 
     def execute(self, context):
         path, error = Utils.getExportPath(
             configs=context.scene.ocd_configs,
-            filename=bpy.context.view_layer.active_layer_collection.name
+            filename=Utils.getActiveCollectionName(context)
         )
         if not path == None:
             bpy.ops.export_scene.fbx(
@@ -155,6 +171,33 @@ class TaperExportPanel(bpy.types.Panel):
             layout.prop(configs, "folder_export_path", text="")
 
 
+class SubstanceLinkOperator(bpy.types.Operator):
+    bl_idname = bl_info["operator_id_prefix"] + ".substance_link"
+    bl_label = "Substance Painter Link"
+
+    update_mesh = BoolProperty(default=False)
+
+    def execute(self, context):
+        painter_path = Utils.getSubstancePainterPath(
+            context.scene.ocd_configs
+        )
+        mesh_path, error = Utils.getExportPath(
+            context.scene.ocd_configs,
+            filename=Utils.getActiveCollectionName(context)
+        )
+
+        if not self.update_mesh:
+            subprocess.Popen(
+                [
+                    painter_path,
+                    '--mesh',
+                    mesh_path
+                ]
+            )
+            
+        return {'FINISHED'}
+
+
 class TaperSubstanceLinkPanel(bpy.types.Panel):
     bl_idname = bl_info["panel_id_name_substance_link"]
     bl_label = bl_info["panel_label_substance_link"]
@@ -167,13 +210,23 @@ class TaperSubstanceLinkPanel(bpy.types.Panel):
         scene = context.scene
         configs = scene.ocd_configs
 
-        
+        layout.label(text="Painter Path")
+        layout.prop(configs, "substance_painter_path", text="")
+
+        layout.label(text="Active Collection")
+        row = layout.row()
+        linkOperator = row.operator(
+            SubstanceLinkOperator.bl_idname,
+            text="Send to Painter"
+        )
+        linkOperator.update_mesh = False
 
 
 classes = (
     Configs,
     ExportFBXCollectionsOperator,
     ExportFBXActiveCollectionOperator,
+    SubstanceLinkOperator,
     TaperExportPanel,
     TaperSubstanceLinkPanel
 )
