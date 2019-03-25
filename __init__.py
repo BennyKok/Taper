@@ -24,7 +24,10 @@ bl_info = {
     "location": "View3D",
     "warning": "",
     "category": "View 3D",
-    "panel_id_name": "Tapert_Panel",
+    "panel_id_name_export": "Taper_Export_Panel",
+    "panel_label_export": "Export",
+    "panel_id_name_substance_link": "Taper_Substance_Link_Panel",
+    "panel_label_substance_link": "Substance Link",
     "operator_id_prefix": "taper"
 }
 
@@ -32,16 +35,16 @@ bl_info = {
 class Configs(bpy.types.PropertyGroup):
 
     # adding our custom property to the Scene type
-    export_to_unity_project = BoolProperty(
-        name="Export to Unity",
+    export_to_folder = BoolProperty(
+        name="Export to Folder",
         description="Export the files to targeted destination.",
         default=False
     )
 
-    unity_export_path = StringProperty(
-        name="Unity Export Path",
+    folder_export_path = StringProperty(
+        name="Folder Export Path",
         default="",
-        description="Define the export path to the Unity project.",
+        description="Define the export path to the folder.",
         subtype='DIR_PATH'
     )
 
@@ -49,11 +52,20 @@ class Configs(bpy.types.PropertyGroup):
 class Utils(object):
 
     @staticmethod
-    def getExportPath(filename=None):
+    def getExportPath(configs: Configs, filename=None):
+        if not bpy.data.is_saved:
+            return None, "File not saved"
+
         folderName = os.path.splitext(
             bpy.path.basename(bpy.context.blend_data.filepath))[0]
         folderPath = os.path.join(os.path.dirname(
             bpy.context.blend_data.filepath), folderName, "")
+
+        if (configs.export_to_folder):
+            if configs.folder_export_path:
+                folderPath = configs.folder_export_path
+            else:
+                return None, "Unspecificed folder path"
 
         print("Exporting at : " + folderPath)
         if not os.path.exists(folderPath):
@@ -63,7 +75,7 @@ class Utils(object):
             folderPath = os.path.join(folderPath, filename)
             folderPath = bpy.path.ensure_ext(folderPath, ".fbx")
 
-        return folderPath
+        return folderPath, None
 
 
 class ExportFBXCollectionsOperator(bpy.types.Operator):
@@ -72,13 +84,20 @@ class ExportFBXCollectionsOperator(bpy.types.Operator):
     button_label = "All"
 
     def execute(self, context):
-        if bpy.data.is_saved:
+        path, error = Utils.getExportPath(
+            configs=context.scene.ocd_configs
+        )
+        if not path == None:
             bpy.ops.export_scene.fbx(
-                filepath=Utils.getExportPath(),
+                filepath=path,
                 # SCENE_COLLECTION
                 batch_mode='COLLECTION',
                 use_batch_own_dir=False
             )
+        else:
+            self.report({'ERROR'}, error)
+
+        print(error)
         return {'FINISHED'}
 
 
@@ -88,20 +107,25 @@ class ExportFBXActiveCollectionOperator(bpy.types.Operator):
     button_label = "Active"
 
     def execute(self, context):
-        if bpy.data.is_saved:
+        path, error = Utils.getExportPath(
+            configs=context.scene.ocd_configs,
+            filename=bpy.context.view_layer.active_layer_collection.name
+        )
+        if not path == None:
             bpy.ops.export_scene.fbx(
-                filepath=Utils.getExportPath(
-                    filename=bpy.context.view_layer.active_layer_collection.name),
+                filepath=path,
                 use_active_collection=True,
                 batch_mode='OFF',
                 use_batch_own_dir=False
             )
+        else:
+            self.report({'ERROR'}, error)
         return {'FINISHED'}
 
 
-class QuickExportPanel(bpy.types.Panel):
-    bl_idname = bl_info["panel_id_name"]
-    bl_label = bl_info["name"]
+class TaperExportPanel(bpy.types.Panel):
+    bl_idname = bl_info["panel_id_name_export"]
+    bl_label = bl_info["panel_label_export"]
     bl_category = bl_info["name"]
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -126,24 +150,41 @@ class QuickExportPanel(bpy.types.Panel):
             text=ExportFBXActiveCollectionOperator.button_label
         )
 
-        layout.prop(configs, "export_to_unity_project")
-        if (configs.export_to_unity_project):
-            layout.label(text="Path to export")
-            layout.prop(configs, "unity_export_path", text="")
+        layout.prop(configs, "export_to_folder")
+        if (configs.export_to_folder):
+            layout.prop(configs, "folder_export_path", text="")
+
+
+class TaperSubstanceLinkPanel(bpy.types.Panel):
+    bl_idname = bl_info["panel_id_name_substance_link"]
+    bl_label = bl_info["panel_label_substance_link"]
+    bl_category = bl_info["name"]
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        configs = scene.ocd_configs
+
+        
 
 
 classes = (
     Configs,
     ExportFBXCollectionsOperator,
     ExportFBXActiveCollectionOperator,
-    QuickExportPanel
+    TaperExportPanel,
+    TaperSubstanceLinkPanel
 )
 
 m_register, m_unregister = bpy.utils.register_classes_factory(classes)
 
+
 def register():
     m_register()
     bpy.types.Scene.ocd_configs = PointerProperty(type=Configs)
+
 
 def unregister():
     del bpy.types.Scene.ocd_configs
