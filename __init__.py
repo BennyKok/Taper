@@ -20,11 +20,12 @@ from bpy.props import BoolProperty, StringProperty, PointerProperty
 bl_info = {
     "name": "Taper",
     "author": "BennyKok",
-    "description": "Mostly speed up the workflow across different tools.",
+    "description": "Mostly speed up the workflow across different tools. (Substance Painter)",
     "blender": (2, 80, 0),
+    "version": (1, 0),
     "location": "View3D",
     "warning": "",
-    "category": "View 3D",
+    "category": "3D View",
     "panel_id_name_export": "Taper_Export_Panel",
     "panel_label_export": "Export",
     "panel_id_name_substance_link": "Taper_Substance_Link_Panel",
@@ -33,27 +34,38 @@ bl_info = {
 }
 
 
+class TaperPreference(bpy.types.AddonPreferences):
+    bl_idname = __name__
+
+    substance_painter_path: StringProperty(
+        name="Substance Painter path",
+        default="C:\\Program Files\\Allegorithmic\\Substance Painter\\Substance Painter.exe",
+        description="The .exe file path of Substance Painter.",
+        subtype='FILE_PATH'
+    )
+
+    def draw(self, context):
+        layout = self.layout
+
+        col = layout.column(align=True)
+        col.label(text="Substance Painter Path")
+        col.prop(self, "substance_painter_path", text="")
+
+
 class Configs(bpy.types.PropertyGroup):
 
     # adding our custom property to the Scene type
-    export_to_folder = BoolProperty(
+    export_to_folder: BoolProperty(
         name="Export to Folder",
         description="Export the files to targeted destination.",
         default=False
     )
 
-    folder_export_path = StringProperty(
+    folder_export_path: StringProperty(
         name="Folder Export Path",
         default="",
         description="Define the export path to the folder.",
         subtype='DIR_PATH'
-    )
-
-    substance_painter_path = StringProperty(
-        name="Substance Painter path",
-        default="C:\\Program Files\\Allegorithmic\\Substance Painter\\Substance Painter.exe",
-        description="The .exe file path of Substance Painter.",
-        subtype='FILE_PATH'
     )
 
 
@@ -102,8 +114,8 @@ class Utils(object):
             os.makedirs(folderPath)
 
     @staticmethod
-    def get_substance_painter_path(configs: Configs):
-        return configs.substance_painter_path
+    def get_substance_painter_path(context):
+        return context.preferences.addons[__name__].preferences.substance_painter_path
 
     @staticmethod
     def get_active_collection_name(context):
@@ -173,13 +185,12 @@ class TaperExportPanel(bpy.types.Panel):
             layout.label(text="File not saved")
 
         layout.label(text="Export Collection to FBX")
-        row = layout.row()
-        row.operator(
+        col = layout.column(align=True)
+        col.operator(
             ExportFBXCollectionsOperator.bl_idname,
             text=ExportFBXCollectionsOperator.button_label
         )
-        row = layout.row()
-        row.operator(
+        col.operator(
             ExportFBXActiveCollectionOperator.bl_idname,
             text=ExportFBXActiveCollectionOperator.button_label
         )
@@ -199,7 +210,7 @@ class SubstanceLinkOperator(bpy.types.Operator):
         bpy.ops.taper.export_fbx_active_collection()
 
         painter_path = Utils.get_substance_painter_path(
-            context.scene.taper_configs
+            context
         )
         mesh_path, error = Utils.get_export_path(
             context.scene.taper_configs,
@@ -478,9 +489,6 @@ class TaperSubstanceLinkPanel(bpy.types.Panel):
         scene = context.scene
         configs = scene.taper_configs
 
-        layout.label(text="Painter Path")
-        layout.prop(configs, "substance_painter_path", text="")
-
         layout.label(text="Active Collection")
         row = layout.row()
         row.operator(
@@ -488,19 +496,19 @@ class TaperSubstanceLinkPanel(bpy.types.Panel):
             text="Send to Painter"
         )
         layout.label(text="Active Selection")
-        row = layout.row()
-        row.operator(
+        col = layout.column(align=True)
+        col.operator(
             SubstancePullTexturesOperator.bl_idname,
             text="Pull Textures"
         )
-        row = layout.row()
-        row.operator(
+        col.operator(
             SubstanceUpdateTexturesOperator.bl_idname,
             text="Update Textures"
         )
 
 
 classes = (
+    TaperPreference,
     Configs,
     ExportFBXCollectionsOperator,
     ExportFBXActiveCollectionOperator,
