@@ -22,7 +22,7 @@ bl_info = {
     "author": "BennyKok",
     "description": "Mostly speed up the workflow across different tools. (Substance Painter)",
     "blender": (2, 80, 0),
-    "version": (0, 0, 1),
+    "version": (0, 0, 2),
     "location": "View3D",
     "warning": "Still in early development! (Tested with windows only!)",
     "category": "3D View",
@@ -97,11 +97,41 @@ class Utils(object):
         return folderPath, None
 
     @staticmethod
+    def enuse_material_folder(context, configs: Configs):
+        export_path, error = Utils.get_export_path(configs)
+        textures_path = os.path.join(
+            export_path,
+            Utils.get_active_collection_name(context),
+            "Materials"
+        )
+
+        Utils.ensure_path(textures_path)
+
+    @staticmethod
+    def get_sp_project_path(context, configs: Configs, name):
+        export_path, error = Utils.get_export_path(configs)
+        textures_path = os.path.join(
+            export_path,
+            Utils.get_active_collection_name(context),
+            "Substance"
+        )
+
+        Utils.ensure_path(textures_path)
+
+        sp_project_path = os.path.join(
+            textures_path,
+            name
+        )
+
+        return sp_project_path
+
+    @staticmethod
     def get_textures_export_path(context, configs: Configs):
         export_path, error = Utils.get_export_path(configs)
         textures_path = os.path.join(
             export_path,
-            Utils.get_active_collection_name(context)
+            Utils.get_active_collection_name(context),
+            "Textures"
         )
 
         Utils.ensure_path(textures_path)
@@ -220,11 +250,13 @@ class SubstanceLinkOperator(bpy.types.Operator):
             context,
             context.scene.taper_configs
         )
-        sp_project_path, error = Utils.get_export_path(
-            context.scene.taper_configs
-        )
-        sp_project_path = sp_project_path + \
+        sp_project_path = Utils.get_sp_project_path(
+            context,
+            context.scene.taper_configs,
             Utils.get_active_collection_name(context) + ".spp"
+        )
+
+        Utils.enuse_material_folder(context,context.scene.taper_configs)
 
         subprocess.Popen(
             [
