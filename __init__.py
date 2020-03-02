@@ -22,7 +22,7 @@ bl_info = {
     "author": "BennyKok",
     "description": "Mostly speed up the workflow across different tools. (Substance Painter)",
     "blender": (2, 80, 0),
-    "version": (0, 0, 2),
+    "version": (0, 0, 3),
     "location": "View3D",
     "warning": "Still in early development! (Tested with windows only!)",
     "category": "3D View",
@@ -164,6 +164,12 @@ class ExportFBXCollectionsOperator(bpy.types.Operator):
         if not path == None:
             bpy.ops.export_scene.fbx(
                 filepath=path,
+
+                #Making sure if we are exporting to Unity, the scale be normal in there
+                apply_unit_scale=False,
+                apply_scale_options='FBX_SCALE_ALL',
+                bake_space_transform=True,
+
                 # SCENE_COLLECTION
                 batch_mode='COLLECTION',
                 use_batch_own_dir=False
@@ -182,6 +188,7 @@ class ExportFBXActiveCollectionOperator(bpy.types.Operator):
     button_label = "Active"
 
     def execute(self, context):
+
         path, error = Utils.get_export_path(
             configs=context.scene.taper_configs,
             filename=Utils.get_active_collection_name(context)
@@ -189,6 +196,12 @@ class ExportFBXActiveCollectionOperator(bpy.types.Operator):
         if not path == None:
             bpy.ops.export_scene.fbx(
                 filepath=path,
+
+                #Making sure if we are exporting to Unity, the scale be normal in there
+                apply_unit_scale=False,
+                apply_scale_options='FBX_SCALE_ALL',
+                bake_space_transform=True,
+
                 use_active_collection=True,
                 batch_mode='OFF',
                 use_batch_own_dir=False
