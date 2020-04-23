@@ -83,7 +83,7 @@ class Utils(object):
 
         if (configs.export_to_folder):
             if configs.folder_export_path:
-                folderPath = configs.folder_export_path
+                folderPath = bpy.path.abspath(configs.folder_export_path)
             else:
                 return None, "Unspecificed folder path"
 
