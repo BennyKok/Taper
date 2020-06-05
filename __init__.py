@@ -110,16 +110,16 @@ class Utils(object):
     @staticmethod
     def get_sp_project_path(context, configs: Configs, name):
         export_path, error = Utils.get_export_path(configs,clean = True)
-        # textures_path = os.path.join(
-        #     export_path,
-        #     Utils.get_active_collection_name(context),
-        #     "Substance"
-        # )
+        textures_path = os.path.join(
+            export_path,
+            Utils.get_active_collection_name(context),
+            "Substance"
+        )
 
-        # Utils.ensure_path(textures_path)
+        Utils.ensure_path(textures_path)
 
         sp_project_path = os.path.join(
-            export_path,
+            textures_path,
             name
         )
 
