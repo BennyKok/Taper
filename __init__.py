@@ -22,7 +22,7 @@ bl_info = {
     "author": "BennyKok",
     "description": "Mostly speed up the workflow across different tools. (Substance Painter)",
     "blender": (2, 80, 0),
-    "version": (0, 0, 3),
+    "version": (0, 0, 4),
     "location": "View3D",
     "warning": "Still in early development! (Tested with windows only!)",
     "category": "3D View",
