@@ -72,7 +72,7 @@ class Configs(bpy.types.PropertyGroup):
 class Utils(object):
 
     @staticmethod
-    def get_export_path(configs: Configs, filename=None):
+    def get_export_path(configs: Configs, filename=None, clean=False):
         if not bpy.data.is_saved:
             return None, "File not saved"
 
@@ -81,7 +81,7 @@ class Utils(object):
         folderPath = os.path.join(os.path.dirname(
             bpy.context.blend_data.filepath), folderName, "")
 
-        if (configs.export_to_folder):
+        if (configs.export_to_folder and not clean):
             if configs.folder_export_path:
                 folderPath = bpy.path.abspath(configs.folder_export_path)
             else:
@@ -109,17 +109,17 @@ class Utils(object):
 
     @staticmethod
     def get_sp_project_path(context, configs: Configs, name):
-        export_path, error = Utils.get_export_path(configs)
-        textures_path = os.path.join(
-            export_path,
-            Utils.get_active_collection_name(context),
-            "Substance"
-        )
+        export_path, error = Utils.get_export_path(configs,clean = True)
+        # textures_path = os.path.join(
+        #     export_path,
+        #     Utils.get_active_collection_name(context),
+        #     "Substance"
+        # )
 
-        Utils.ensure_path(textures_path)
+        # Utils.ensure_path(textures_path)
 
         sp_project_path = os.path.join(
-            textures_path,
+            export_path,
             name
         )
 
@@ -213,9 +213,9 @@ class ExportFBXActiveCollectionOperator(bpy.types.Operator):
 
 
 class AutoNameUnwrapMaterialOperator(bpy.types.Operator):
-    bl_idname = bl_info["operator_id_prefix"] + ".active_collection_auto"
+    bl_idname = bl_info["operator_id_prefix"] + ".name_unwrap_auto"
     bl_label = "Auto Name Unwrap Material"
-    button_label = "Auto Center, UV, Mat"
+    button_label = "Auto UV, Mat, Normal"
 
     def execute(self, context):
         active_obj = bpy.context.view_layer.objects.active
@@ -225,8 +225,33 @@ class AutoNameUnwrapMaterialOperator(bpy.types.Operator):
             mat = bpy.data.materials.new(name=Utils.get_active_collection_name(context))
             active_obj.data.materials.append(mat)
 
-        bpy.ops.uv.smart_project()
+        bpy.ops.object.mode_set(mode='EDIT')
 
+        bpy.ops.mesh.select_all(action='DESELECT')
+
+        for idx, mat in enumerate(active_obj.data.materials):
+            bpy.context.object.active_material_index = idx
+            bpy.ops.object.material_slot_select()
+            # Recalculate normal
+            bpy.ops.mesh.normals_make_consistent(inside=False)
+            # Smart UV project
+            bpy.ops.uv.smart_project()
+            bpy.ops.object.material_slot_deselect()
+
+        bpy.ops.object.editmode_toggle()
+
+
+        return {'FINISHED'}
+
+    
+class AutoCenterOperator(bpy.types.Operator):
+    bl_idname = bl_info["operator_id_prefix"] + ".center_auto"
+    bl_label = "Auto Center"
+    button_label = "Auto Center"
+
+    def execute(self, context):
+        active_obj = bpy.context.view_layer.objects.active
+            
         bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
         bpy.context.object.location[0] = 0
         bpy.context.object.location[1] = 0
@@ -266,10 +291,14 @@ class TaperExportPanel(bpy.types.Panel):
             layout.prop(configs, "folder_export_path", text="")
 
         layout.label(text="Utils")
-        row = layout.row()
-        row.operator(
+        col = layout.column(align=True)
+        col.operator(
             AutoNameUnwrapMaterialOperator.bl_idname,
             text=AutoNameUnwrapMaterialOperator.button_label
+        )
+        col.operator(
+            AutoCenterOperator.bl_idname,
+            text=AutoCenterOperator.button_label
         )
 
 
@@ -603,6 +632,7 @@ classes = (
     ExportFBXCollectionsOperator,
     ExportFBXActiveCollectionOperator,
     AutoNameUnwrapMaterialOperator,
+    AutoCenterOperator,
     SubstanceLinkOperator,
     SubstancePullTexturesOperator,
     SubstanceUpdateTexturesOperator,
