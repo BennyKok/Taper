@@ -227,19 +227,38 @@ class AutoNameUnwrapMaterialOperator(bpy.types.Operator):
 
         bpy.ops.object.mode_set(mode='EDIT')
 
+        # Recalculate normal
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.normals_make_consistent(inside=False)
+
         bpy.ops.mesh.select_all(action='DESELECT')
 
         for idx, mat in enumerate(active_obj.data.materials):
             bpy.context.object.active_material_index = idx
             bpy.ops.object.material_slot_select()
-            # Recalculate normal
-            bpy.ops.mesh.normals_make_consistent(inside=False)
             # Smart UV project
             bpy.ops.uv.smart_project()
             bpy.ops.object.material_slot_deselect()
 
         bpy.ops.object.editmode_toggle()
 
+
+        return {'FINISHED'}
+
+
+class FlipNormalOperator(bpy.types.Operator):
+    bl_idname = bl_info["operator_id_prefix"] + ".flip_normal"
+    bl_label = "Flip Normal"
+    button_label = "Flip Normal"
+
+    def execute(self, context):
+        bpy.ops.object.mode_set(mode='EDIT')
+
+        # Flip normal
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.flip_normals()
+        bpy.ops.mesh.select_all(action='DESELECT')
+        bpy.ops.object.editmode_toggle()
 
         return {'FINISHED'}
 
@@ -292,6 +311,10 @@ class TaperExportPanel(bpy.types.Panel):
 
         layout.label(text="Utils")
         col = layout.column(align=True)
+        col.operator(
+            FlipNormalOperator.bl_idname,
+            text=FlipNormalOperator.button_label
+        )
         col.operator(
             AutoNameUnwrapMaterialOperator.bl_idname,
             text=AutoNameUnwrapMaterialOperator.button_label
@@ -632,6 +655,7 @@ classes = (
     ExportFBXCollectionsOperator,
     ExportFBXActiveCollectionOperator,
     AutoNameUnwrapMaterialOperator,
+    FlipNormalOperator,
     AutoCenterOperator,
     SubstanceLinkOperator,
     SubstancePullTexturesOperator,
