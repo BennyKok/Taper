@@ -1,16 +1,4 @@
 # context.area: VIEW_3D
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTIBILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-# General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
 import bpy
 import os
 import subprocess
@@ -68,6 +56,13 @@ class Configs(bpy.types.PropertyGroup):
         subtype='DIR_PATH'
     )
 
+    custom_sp_file: StringProperty(
+        name="Custom SP Project Path",
+        default="",
+        description="Define the sp project path to this project.",
+        subtype='DIR_PATH'
+    )
+
 
 class Utils(object):
 
@@ -85,7 +80,7 @@ class Utils(object):
             if configs.folder_export_path:
                 folderPath = bpy.path.abspath(configs.folder_export_path)
             else:
-                return None, "Unspecificed folder path"
+                return None, "Unspecified folder path"
 
         print("Getting path at : " + folderPath)
         Utils.ensure_path(folderPath)
@@ -97,7 +92,7 @@ class Utils(object):
         return folderPath, None
 
     @staticmethod
-    def enuse_material_folder(context, configs: Configs):
+    def ensure_material_folder(context, configs: Configs):
         export_path, error = Utils.get_export_path(configs)
         textures_path = os.path.join(
             export_path,
@@ -109,9 +104,12 @@ class Utils(object):
 
     @staticmethod
     def get_sp_project_path(context, configs: Configs, name):
-        export_path, error = Utils.get_export_path(configs,clean = True)
+        export_path, error = Utils.get_export_path(configs, clean=True)
+
+        final_path = bpy.path.abspath(configs.custom_sp_file) if configs.custom_sp_file else export_path
+
         textures_path = os.path.join(
-            export_path,
+            final_path,
             Utils.get_active_collection_name(context),
             "Substance"
         )
@@ -165,7 +163,7 @@ class ExportFBXCollectionsOperator(bpy.types.Operator):
             bpy.ops.export_scene.fbx(
                 filepath=path,
 
-                #Making sure if we are exporting to Unity, the scale be normal in there
+                # Making sure if we are exporting to Unity, the scale be normal in there
                 apply_unit_scale=False,
                 apply_scale_options='FBX_SCALE_ALL',
                 bake_space_transform=True,
@@ -197,7 +195,7 @@ class ExportFBXActiveCollectionOperator(bpy.types.Operator):
             bpy.ops.export_scene.fbx(
                 filepath=path,
 
-                #Making sure if we are exporting to Unity, the scale be normal in there
+                # Making sure if we are exporting to Unity, the scale be normal in there
                 apply_unit_scale=False,
                 apply_scale_options='FBX_SCALE_ALL',
                 bake_space_transform=True,
@@ -219,10 +217,11 @@ class AutoNameUnwrapMaterialOperator(bpy.types.Operator):
 
     def execute(self, context):
         active_obj = bpy.context.view_layer.objects.active
-            
+
         # add a material if there isnt any
         if len(active_obj.data.materials) == 0:
-            mat = bpy.data.materials.new(name=Utils.get_active_collection_name(context))
+            mat = bpy.data.materials.new(
+                name=Utils.get_active_collection_name(context))
             active_obj.data.materials.append(mat)
 
         bpy.ops.object.mode_set(mode='EDIT')
@@ -241,7 +240,6 @@ class AutoNameUnwrapMaterialOperator(bpy.types.Operator):
             bpy.ops.object.material_slot_deselect()
 
         bpy.ops.object.editmode_toggle()
-
 
         return {'FINISHED'}
 
@@ -262,7 +260,7 @@ class FlipNormalOperator(bpy.types.Operator):
 
         return {'FINISHED'}
 
-    
+
 class AutoCenterOperator(bpy.types.Operator):
     bl_idname = bl_info["operator_id_prefix"] + ".center_auto"
     bl_label = "Auto Center"
@@ -270,7 +268,7 @@ class AutoCenterOperator(bpy.types.Operator):
 
     def execute(self, context):
         active_obj = bpy.context.view_layer.objects.active
-            
+
         bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
         bpy.context.object.location[0] = 0
         bpy.context.object.location[1] = 0
@@ -325,8 +323,6 @@ class TaperExportPanel(bpy.types.Panel):
         )
 
 
-
-
 class SubstanceLinkOperator(bpy.types.Operator):
     bl_idname = bl_info["operator_id_prefix"] + ".substance_link"
     bl_label = "Substance Painter Link"
@@ -353,7 +349,7 @@ class SubstanceLinkOperator(bpy.types.Operator):
             Utils.get_active_collection_name(context) + ".spp"
         )
 
-        Utils.enuse_material_folder(context,context.scene.taper_configs)
+        Utils.ensure_material_folder(context, context.scene.taper_configs)
 
         subprocess.Popen(
             [
@@ -460,7 +456,6 @@ class SubstancePullTexturesOperator(bpy.types.Operator):
         node_tree = bpy.data.materials[material_name].node_tree
         nodes = node_tree.nodes
         links = node_tree.links
-            
 
         target_shader_node = [
             n for n in nodes if n.bl_idname == 'ShaderNodeBsdfPrincipled'
@@ -647,6 +642,9 @@ class TaperSubstanceLinkPanel(bpy.types.Panel):
             SubstanceUpdateTexturesOperator.bl_idname,
             text="Update Textures"
         )
+
+        layout.label(text="Custom SP Project Folder")
+        layout.prop(configs, "custom_sp_file", text="")
 
 
 classes = (
