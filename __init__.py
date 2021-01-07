@@ -106,7 +106,8 @@ class Utils(object):
     def get_sp_project_path(context, configs: Configs, name):
         export_path, error = Utils.get_export_path(configs, clean=True)
 
-        final_path = bpy.path.abspath(configs.custom_sp_file) if configs.custom_sp_file else export_path
+        final_path = bpy.path.abspath(
+            configs.custom_sp_file) if configs.custom_sp_file else export_path
 
         textures_path = os.path.join(
             final_path,
@@ -368,9 +369,53 @@ class SubstanceLinkOperator(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class SubstanceCleanNodeOperator(bpy.types.Operator):
+    bl_idname = bl_info["operator_id_prefix"] + ".substance_clean_node"
+    bl_label = "Clean Node"
+    bl_description = "Remove all the node except output and Principled BSDF node"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def match_material_slot_with_textures(self, context, texture_export_path, material_name: str):
+        # We get all the node tree for current material
+        mat = bpy.data.materials[material_name]
+        node_tree = mat.node_tree
+        nodes = node_tree.nodes
+
+        # If we want to clean up the texture node
+        for n in nodes:
+            if not (n.bl_idname == 'ShaderNodeBsdfPrincipled' or n.bl_idname == 'ShaderNodeOutputMaterial'):
+                nodes.remove(n)
+
+        previous = mat.use_nodes
+        mat.use_nodes = False
+        mat.use_nodes = previous
+
+    def execute(self, context):
+        texture_export_path = Utils.get_textures_export_path(
+            context,
+            context.scene.taper_configs
+        )
+
+        active_obj = bpy.context.view_layer.objects.active
+        if len(active_obj.data.materials) == 0:
+            self.report({'ERROR'}, "No material found in this selected object")
+        else:
+            for slot in active_obj.material_slots:
+                self.match_material_slot_with_textures(
+                    context,
+                    texture_export_path,
+                    slot.material.name
+                )
+
+        bpy.context.space_data.shading.type = 'RENDERED'
+        return {'FINISHED'}
+
+
 class SubstancePullTexturesOperator(bpy.types.Operator):
     bl_idname = bl_info["operator_id_prefix"] + ".substance_pull_textures"
     bl_label = "Pull Substance Painter Textures"
+    bl_description = "Pull textures and auto Principled BSDF setup"
 
     gloss_tag = 'gloss glossy glossyness'
     bump_tag = 'bump bmp'
@@ -442,15 +487,6 @@ class SubstancePullTexturesOperator(bpy.types.Operator):
 
     @classmethod
     def match_material_slot_with_textures(self, context, texture_export_path, material_name: str):
-        m_files = []
-        for filename in os.listdir(texture_export_path):
-            if filename.endswith(".png") and filename.split('_')[0] == material_name:
-                m_files.append({'name': filename})
-                continue
-            else:
-                continue
-
-        # print(m_files)
 
         # We get all the node tree for current material
         node_tree = bpy.data.materials[material_name].node_tree
@@ -464,10 +500,12 @@ class SubstancePullTexturesOperator(bpy.types.Operator):
             n for n in nodes if n.bl_idname == 'ShaderNodeOutputMaterial'
         ][0]
 
-        if (self.force_pull):
-            for n in nodes:
-                if not (n.bl_idname == target_shader_node.bl_idname or n.bl_idname == output_node.bl_idname):
-                    nodes.remove(n)
+        m_files = []
+        for filename in os.listdir(texture_export_path):
+            if filename.endswith(".png") and filename.split('_')[0] == material_name:
+                m_files.append({'name': filename})
+            else:
+                continue
 
         mapping = None
         texture_input = None
@@ -486,6 +524,9 @@ class SubstancePullTexturesOperator(bpy.types.Operator):
                 node.label = socket_name
                 node.image = img
 
+                if not socket_name == 'Base Color':
+                    img.colorspace_settings.name = 'Non-Color'
+
                 if not mapping and not texture_input:
                     mapping = nodes.new(type='ShaderNodeMapping')
                     mapping.location = (target_shader_node.location.x - 850, 0)
@@ -498,9 +539,6 @@ class SubstancePullTexturesOperator(bpy.types.Operator):
 
                 # Link mapping node
                 links.new(node.inputs[0], mapping.outputs[0])
-
-                if not socket_name == 'Base Color':
-                    node.color_space = 'NONE'
 
                 if not socket_name in ['Displacement', 'Normal']:
                     links.new(
@@ -558,6 +596,7 @@ class SubstancePullTexturesOperator(bpy.types.Operator):
                     slot.material.name
                 )
 
+        bpy.context.space_data.shading.type = 'RENDERED'
         return {'FINISHED'}
 
 
@@ -633,11 +672,10 @@ class TaperSubstanceLinkPanel(bpy.types.Panel):
             SubstancePullTexturesOperator.bl_idname,
             text="Pull Textures"
         )
-        force_pull_op = col.operator(
-            SubstancePullTexturesOperator.bl_idname,
-            text="Force Pull Textures"
+        col.operator(
+            SubstanceCleanNodeOperator.bl_idname,
+            text="Clean"
         )
-        force_pull_op.force_pull = True
         col.operator(
             SubstanceUpdateTexturesOperator.bl_idname,
             text="Update Textures"
@@ -657,6 +695,7 @@ classes = (
     AutoCenterOperator,
     SubstanceLinkOperator,
     SubstancePullTexturesOperator,
+    SubstanceCleanNodeOperator,
     SubstanceUpdateTexturesOperator,
     TaperExportPanel,
     TaperSubstanceLinkPanel
