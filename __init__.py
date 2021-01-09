@@ -364,6 +364,8 @@ class SubstanceLinkOperator(bpy.types.Operator):
             ]
         )
 
+        print(sp_project_path)
+
         self.report({'INFO'}, "Opening Substance Painter")
 
         return {'FINISHED'}
@@ -489,7 +491,10 @@ class SubstancePullTexturesOperator(bpy.types.Operator):
     def match_material_slot_with_textures(self, context, texture_export_path, material_name: str):
 
         # We get all the node tree for current material
-        node_tree = bpy.data.materials[material_name].node_tree
+        mat = bpy.data.materials[material_name]
+        mat.use_nodes = True
+        
+        node_tree = mat.node_tree
         nodes = node_tree.nodes
         links = node_tree.links
 
@@ -502,7 +507,13 @@ class SubstancePullTexturesOperator(bpy.types.Operator):
 
         m_files = []
         for filename in os.listdir(texture_export_path):
-            if filename.endswith(".png") and filename.split('_')[0] == material_name:
+            filenames = filename.split('_')
+            is_target_material = filenames[0] == material_name
+
+            if (not is_target_material and len(filenames) > 1):
+                is_target_material = filenames[1] == material_name
+
+            if filename.endswith(".png") and is_target_material:
                 m_files.append({'name': filename})
             else:
                 continue
@@ -510,6 +521,8 @@ class SubstancePullTexturesOperator(bpy.types.Operator):
         mapping = None
         texture_input = None
         index = 0
+
+        print("Textures found: " + str(len(m_files)))
 
         for socket in self.socketnames:
             img, extra = self.get_matched_image(
@@ -584,6 +597,8 @@ class SubstancePullTexturesOperator(bpy.types.Operator):
             context,
             context.scene.taper_configs
         )
+
+        print(texture_export_path)
 
         active_obj = bpy.context.view_layer.objects.active
         if len(active_obj.data.materials) == 0:
