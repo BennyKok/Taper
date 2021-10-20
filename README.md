@@ -1,7 +1,10 @@
 # Taper for Blender
 A Blender 2.8 addon, mostly speed up the workflow across different tools. (Substance Painter)
 
-### Get it on [Gumraod](https://gum.co/OeQod)
+## Install
+- Get it on [Gumraod](https://gum.co/OeQod), or
+- Download source as zip file
+
 Note: Still in development, features are tentative to change
 
 ## Collection based export
